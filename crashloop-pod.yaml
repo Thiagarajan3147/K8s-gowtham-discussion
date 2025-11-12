@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashloop-pod
+spec:
+  initContainers:
+  - name: init-crash-container
+    image: busybox
+    args:
+    - /bin/sh
+    - -c
+    - "exit 1" # This command will cause the init container to fail, preventing the main container from starting. Replace with 'echo Initialization successful' for a successful initContainer.
+  containers:
+  - name: main-container
+    image: nginx
+    ports:
+    - containerPort: 80
+    restartPolicy: Always
