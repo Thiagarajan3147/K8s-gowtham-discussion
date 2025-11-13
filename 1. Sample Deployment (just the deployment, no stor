@@ -1,0 +1,87 @@
+1. Sample Deployment (just the deployment, no storage yet)
+text
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample
+  template:
+    metadata:
+      labels:
+        app: sample
+    spec:
+      containers:
+        - name: sample-container
+          image: nginx
+          ports:
+            - containerPort: 80
+2. PersistentVolume (PV)
+Kind supports HostPath volumes for local development:
+
+text
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sample-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /mnt/data
+(The path /mnt/data should exist on all KIND nodes, or you can use any valid path on your machine)
+
+3. PersistentVolumeClaim (PVC)
+text
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sample-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+4. Attach PVC to Deployment
+Update your original deployment to mount the PVC:
+
+text
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sample
+  template:
+    metadata:
+      labels:
+        app: sample
+    spec:
+      containers:
+        - name: sample-container
+          image: nginx
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: sample-storage
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: sample-storage
+          persistentVolumeClaim:
+            claimName: sample-pvc
+Usage Sequence:
+
+kubectl apply -f pv.yaml
+
+kubectl apply -f pvc.yaml
+
+kubectl apply -f deployment.yaml

@@ -1,0 +1,106 @@
+Step 1: Create KIND Cluster
+
+bash
+kind create cluster --name demo-ingress
+Step 2: Install ingress-nginx via Helm
+
+bash
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+# Install ingress-nginx
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace
+Step 3: Verify Installation
+
+bash
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+Find the ingress-nginx-controller service. For KIND, expose it using port-forward:
+
+bash
+kubectl port-forward \
+    --namespace ingress-nginx \
+    svc/ingress-nginx-controller \
+    8080:80
+Step 4: Create Test Deployment and Service
+
+text
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+      - name: hello
+        image: hashicorp/http-echo
+        args:
+        - "-text=hello world"
+        ports:
+        - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  ports:
+  - port: 80
+    targetPort: 5678
+  selector:
+    app: hello
+Apply it:
+
+bash
+kubectl apply -f hello.yaml
+Step 5: Set Up Basic Authentication
+Generate a basic auth file:
+
+bash
+# Install apache2-utils if needed: sudo apt install apache2-utils
+htpasswd -c auth admin
+Create secret in the same namespace:
+
+bash
+kubectl create secret generic basic-auth \
+    --from-file=auth \
+    --namespace default
+Step 6: Create Ingress Resource with Auth Annotations
+
+text
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: "basic"
+    nginx.ingress.kubernetes.io/auth-secret: "basic-auth"
+    nginx.ingress.kubernetes.io/auth-realm: "Authentication Required"
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hello
+            port:
+              number: 80
+Apply it:
+
+bash
+kubectl apply -f hello-ingress.yaml
+Step 7: Test Authentication
+Visit http://localhost:8080/ in your browser. You’ll be prompted for the username and password you set with htpasswd.
